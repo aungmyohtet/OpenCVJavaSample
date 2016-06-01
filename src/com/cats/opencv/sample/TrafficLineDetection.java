@@ -22,7 +22,7 @@ public class TrafficLineDetection extends Application {
 			scene.getStylesheets().add(getClass().getResource("application.css").toExternalForm());
 			// create the stage with the given title and the previously created
 			// scene
-			primaryStage.setTitle("Face Detection and Tracking");
+			primaryStage.setTitle("Traffic Line Detection and Tracking");
 			primaryStage.setScene(scene);
 			// show the GUI
 			primaryStage.show();
