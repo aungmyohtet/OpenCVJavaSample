@@ -66,6 +66,10 @@ public class TrafficLineDetectionController {
 
 	private boolean detectFromVideoFile = true;
 
+	MatOfRect cars;
+
+	Mat lines;
+
 	protected void init() {
 		this.capture = new VideoCapture();
 		this.carCascade = new CascadeClassifier();
@@ -149,7 +153,12 @@ public class TrafficLineDetectionController {
 				// if the frame is not empty, process it
 				if (!frame.empty()) {
 					// detect cars and traffic lines
-					this.detectAndDisplay(frame);
+					// this.detectAndDisplay(frame);
+					this.detectCars(frame);
+					this.detectLines(frame);
+					this.displayCars(frame);
+					this.displayLines(frame);
+					this.processForDrawingContours(frame);
 					// convert the Mat object (OpenCV) to Image (JavaFX)
 					imageToShow = mat2Image(frame);
 				}
@@ -162,10 +171,9 @@ public class TrafficLineDetectionController {
 		return imageToShow;
 	}
 
-	private void detectAndDisplay(Mat frame) {
-		MatOfRect cars = new MatOfRect();
+	private void detectCars(Mat frame) {
+		this.cars = new MatOfRect();
 		Mat grayFrame = new Mat();
-		Mat distCanny = new Mat(frame.width(), frame.height(), frame.type());
 		Mat halfFrame = new Mat(frame.width() / 2, frame.height() / 2, frame.type());
 		Imgproc.pyrDown(frame, halfFrame);
 
@@ -186,18 +194,19 @@ public class TrafficLineDetectionController {
 		// detect cars
 		this.carCascade.detectMultiScale(grayFrame, cars, 1.1, 2, 0 | Objdetect.CASCADE_SCALE_IMAGE, new Size(50,
 				50)/* new Size(this.absoluteCarSize, this.absoluteCarSize) */, new Size());
+
+	}
+
+	private void displayCars(Mat frame) {
 		// each rectangle in cars is a car: draw them!
 		Rect[] carsArray = cars.toArray();
 		for (int i = 0; i < carsArray.length; i++)
 			Imgproc.rectangle(frame, carsArray[i].tl(), carsArray[i].br(), new Scalar(0, 255, 0), 3);
+	}
 
-		// Crop off top half of image since we're only interested in the lower
-		// portion of the video
-		int halfHeight = frame.height() / 2;
-		frame.locateROI(new Size(frame.width() - 1, halfHeight - 1), new Point(0, halfHeight));
-
-		grayFrame.locateROI(new Size(frame.width() - 10, halfHeight - 10), new Point(0, halfHeight + 10));
-		distCanny.locateROI(new Size(frame.width() - 10, halfHeight - 10), new Point(0, halfHeight + 10));
+	private void detectLines(Mat frame) {
+		Mat grayFrame = new Mat();
+		Mat distCanny = new Mat(frame.width(), frame.height(), frame.type());
 
 		Imgproc.cvtColor(frame, grayFrame, Imgproc.COLOR_BGR2GRAY);
 
@@ -208,17 +217,17 @@ public class TrafficLineDetectionController {
 		// upper_threshold, kernel_size)
 		Imgproc.Canny(grayFrame, distCanny, 50, 150, 5, true);
 
-		Mat lines = new Mat();
+		this.lines = new Mat();
 
 		// Find lines
 		Imgproc.HoughLinesP(distCanny, lines, 1, Math.PI / 180, 30, 200, 10);
+	}
 
+	private void displayLines(Mat frame) {
 		// Draw detected lines
 		for (int x = 0; x < lines.cols(); x++) {
 			for (int row = 0; row < lines.rows(); row++) {
 				double[] vec = lines.get(row, x);
-				System.out.println("Vec Length is " + vec.length);
-
 				double x1 = vec[0], y1 = vec[1], x2 = vec[2], y2 = vec[3];
 				Point start = new Point(x1, y1);
 				Point end = new Point(x2, y2);
@@ -226,8 +235,6 @@ public class TrafficLineDetectionController {
 				Imgproc.line(frame, start, end, new Scalar(255, 0, 0), 2);
 			}
 		}
-
-		processForDrawingContours(frame);
 	}
 
 	@FXML
