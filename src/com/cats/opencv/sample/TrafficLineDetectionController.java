@@ -9,19 +9,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.opencv.core.Core;
-import org.opencv.core.CvType;
-import org.opencv.core.KeyPoint;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
-import org.opencv.core.MatOfKeyPoint;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfRect;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.opencv.features2d.FeatureDetector;
-import org.opencv.features2d.Features2d;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
@@ -166,37 +161,13 @@ public class TrafficLineDetectionController {
 
 		return imageToShow;
 	}
-	
-	private void detectRoad(Mat frame) {
-		Mat gray = new Mat();
-		Imgproc.cvtColor(frame, gray, Imgproc.COLOR_BGR2GRAY);
-		Imgproc.threshold(gray, gray, 100, 255, Imgproc.THRESH_BINARY);
-		
-		Mat erode = new Mat();
-		Imgproc.erode(gray, erode, new Mat(), new Point(2,2), 7);
-		Mat dilate = new Mat();
-		Imgproc.dilate(gray, dilate, new Mat(), new Point(2,2), 7);
-		Imgproc.threshold(dilate, dilate, 1, 50, Imgproc.THRESH_BINARY_INV);
-		
-		Mat pathTrace = new Mat(gray.size(), CvType.CV_8U, new Scalar(0));
-		Core.add(erode, dilate, pathTrace);
-		
-		Mat path = new Mat();
-		pathTrace.convertTo(path, CvType.CV_32S);
-		
-		Imgproc.watershed(frame, path);
-		path.convertTo(path, CvType.CV_8U);
-		findAndDrawContours(path, frame);
-	}
-	
 
 	private void detectAndDisplay(Mat frame) {
 		MatOfRect cars = new MatOfRect();
 		Mat grayFrame = new Mat();
 		Mat distCanny = new Mat(frame.width(), frame.height(), frame.type());
-		Mat halfFrame = new Mat(frame.width()/2, frame.height()/2,frame.type());
-	    Imgproc.pyrDown(frame, halfFrame);
-       
+		Mat halfFrame = new Mat(frame.width() / 2, frame.height() / 2, frame.type());
+		Imgproc.pyrDown(frame, halfFrame);
 
 		// convert the frame in gray scale
 		Imgproc.cvtColor(frame, grayFrame, Imgproc.COLOR_BGR2GRAY);
@@ -215,7 +186,6 @@ public class TrafficLineDetectionController {
 		// detect cars
 		this.carCascade.detectMultiScale(grayFrame, cars, 1.1, 2, 0 | Objdetect.CASCADE_SCALE_IMAGE, new Size(50,
 				50)/* new Size(this.absoluteCarSize, this.absoluteCarSize) */, new Size());
-		System.out.println("face count is " + cars.size());
 		// each rectangle in cars is a car: draw them!
 		Rect[] carsArray = cars.toArray();
 		for (int i = 0; i < carsArray.length; i++)
@@ -234,7 +204,8 @@ public class TrafficLineDetectionController {
 		// Smooth images by remove noises
 		Imgproc.GaussianBlur(grayFrame, grayFrame, new Size(3, 3), 5);
 
-		//Improc.Canny(src, dst, lower_threshold, lower_threshld * ration = upper_threshold, kernel_size)
+		// Improc.Canny(src, dst, lower_threshold, lower_threshld * ration =
+		// upper_threshold, kernel_size)
 		Imgproc.Canny(grayFrame, distCanny, 50, 150, 5, true);
 
 		Mat lines = new Mat();
@@ -255,49 +226,8 @@ public class TrafficLineDetectionController {
 				Imgproc.line(frame, start, end, new Scalar(255, 0, 0), 2);
 			}
 		}
-		
-		drawContours(frame);
-		//detectRoad(frame);
-		
-		MatOfKeyPoint matOfKeyPoints = new MatOfKeyPoint();
-		FeatureDetector featureDetector = FeatureDetector.create(FeatureDetector.AKAZE);
-		
-		featureDetector.detect(frame, matOfKeyPoints);
-		
-		KeyPoint[] keyPoints = matOfKeyPoints.toArray();
-		KeyPoint keyPoint1 = keyPoints[0];
-		System.out.println(keyPoint1.angle+" key point angle");
-		
-		System.out.println(keyPoint1.pt);
-		System.out.println(keyPoints.length+ " key point length");
-		
-		//Features2d.drawKeypoints(frame, matOfKeyPoints, frame, new Scalar(0, 0, 255), Features2d.DRAW_RICH_KEYPOINTS);
-		
-		drawContours2(frame);
-		
-		/*List<MatOfPoint> contours = new ArrayList<>();
-		Mat hierarchy = new Mat();
 
-		Imgproc.cvtColor(frame, grayFrame, Imgproc.COLOR_BGR2GRAY);
-
-		// Smooth images by remove noises
-		Imgproc.GaussianBlur(grayFrame, grayFrame, new Size(3, 3), 5);
-
-		//Improc.Canny(src, dst, lower_threshold, lower_threshld * ration = upper_threshold, kernel_size)
-		Imgproc.Canny(grayFrame, distCanny, 50, 150, 5, true);
-		// find contours
-		Imgproc.findContours(distCanny, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
-
-		// if any contour exist...
-		if (hierarchy.size().height > 0 && hierarchy.size().width > 0)
-		{
-		        // for each contour, display it in blue
-		        for (int idx = 0; idx >= 0; idx = (int) hierarchy.get(0, idx)[0])
-		        {
-		                Imgproc.drawContours(frame, contours, idx, new Scalar(250, 0, 0));
-		        }
-		}*/
-
+		processForDrawingContours(frame);
 	}
 
 	@FXML
@@ -337,116 +267,62 @@ public class TrafficLineDetectionController {
 		// buffer
 		return new Image(new ByteArrayInputStream(buffer.toArray()));
 	}
-	
-	private void drawContours(Mat frame) {
+
+	private void processForDrawingContours(Mat frame) {
 		if (!frame.empty()) {
-			frame.locateROI(new Size(frame.width()/2-1, frame.height()/2-1), new Point(0, frame.height()/2));
+			frame.locateROI(new Size(frame.width() / 2 - 1, frame.height() / 2 - 1), new Point(0, frame.height() / 2));
 			// init
 			Mat blurredImage = new Mat();
 			Mat hsvImage = new Mat();
 			Mat mask = new Mat();
 			Mat morphOutput = new Mat();
-			
+
 			// remove some noise
 			Imgproc.blur(frame, blurredImage, new Size(7, 7));
-			
+
 			// convert the frame to HSV
 			Imgproc.cvtColor(blurredImage, hsvImage, Imgproc.COLOR_BGR2HSV);
-			
+
 			// get thresholding values from the UI
 			// remember: H ranges 0-180, S and V range 0-255
 			Scalar minValues = new Scalar(0.0, 100.0, 56.0);
-			Scalar maxValues = new Scalar(126.0,147.0, 180.0);
-			
-			// show the current selected HSV range
-			//String valuesToPrint = "Hue range: " + minValues.val[0] + "-" + maxValues.val[0]
-					//+ "\tSaturation range: " + minValues.val[1] + "-" + maxValues.val[1] + "\tValue range: "
-					//+ minValues.val[2] + "-" + maxValues.val[2];
-			//this.onFXThread(this.hsvValuesProp, valuesToPrint);
-			
-			// threshold HSV image to select tennis balls
+			Scalar maxValues = new Scalar(126.0, 147.0, 180.0);
+
+			// threshold HSV image
 			Core.inRange(hsvImage, minValues, maxValues, mask);
-			// show the partial output
-			//this.onFXThread(this.maskImage.imageProperty(), this.mat2Image(mask));
-			
+
 			// morphological operators
 			// dilate with large element, erode with small ones
 			Mat dilateElement = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(16, 16));
 			Mat erodeElement = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(8, 8));
-			
-			Imgproc.erode(mask, morphOutput, erodeElement);
-			Imgproc.erode(mask, morphOutput, erodeElement);
-			
-			Imgproc.dilate(mask, morphOutput, dilateElement);
-			Imgproc.dilate(mask, morphOutput, dilateElement);
-			
-			// show the partial output
-			//this.onFXThread(this.morphImage.imageProperty(), this.mat2Image(morphOutput));
-			
-			// find the tennis ball(s) contours and show them
-			frame = this.findAndDrawContours(morphOutput, frame);
-			
-			// convert the Mat object (OpenCV) to Image (JavaFX)
-		    mat2Image(frame);
-		
-		}
-	}
-	
-	
-	private void drawContours2(Mat frame) {
-		Mat grayImage = new Mat();
-		Mat thresholdImage = new Mat();
-		Imgproc.cvtColor(frame, grayImage, Imgproc.COLOR_BGR2GRAY);
-		Imgproc.threshold(grayImage, thresholdImage,
-				20, 255, Imgproc.THRESH_BINARY);
-		Imgproc.blur(thresholdImage, thresholdImage, new Size(10, 10));
-		Imgproc.threshold(grayImage, thresholdImage,
-				20, 255, Imgproc.THRESH_BINARY);
 
-		List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
-		Mat hierarchy = new Mat();
-		Imgproc.findContours(thresholdImage, contours, hierarchy,
-			Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
-		
-		Rect objectBoundingRectangle = new Rect(0, 0, 0, 0);
-		for (int i = 0; i < contours.size(); i++)
-		{
-			objectBoundingRectangle = Imgproc.boundingRect(contours.get(i));
-			if(objectBoundingRectangle.area() > 50)
-			Imgproc.rectangle(frame, objectBoundingRectangle.tl(), objectBoundingRectangle.br(), new Scalar(100,50,100));
+			Imgproc.erode(mask, morphOutput, erodeElement);
+			Imgproc.erode(mask, morphOutput, erodeElement);
+
+			Imgproc.dilate(mask, morphOutput, dilateElement);
+			Imgproc.dilate(mask, morphOutput, dilateElement);
+
+			frame = this.findAndDrawContours(morphOutput, frame);
 		}
 	}
-	
-	private Mat findAndDrawContours(Mat maskedImage, Mat frame)
-	{
-		// init
+
+	private Mat findAndDrawContours(Mat maskedImage, Mat frame) {
 		List<MatOfPoint> contours = new ArrayList<>();
 		Mat hierarchy = new Mat();
-		
+
 		// find contours
 		Imgproc.findContours(maskedImage, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
-		
-		for (int i=0; i < contours.size(); i++) {
+
+		for (int i = 0; i < contours.size(); i++) {
 			Rect boundingRectangle = Imgproc.boundingRect(contours.get(i));
-			if (boundingRectangle.height> 20 && boundingRectangle.height< 100 &&
-					boundingRectangle.width > 20 && boundingRectangle.width < 100) {
-				Imgproc.rectangle(frame, new Point(boundingRectangle.x, boundingRectangle.y),new Point(boundingRectangle.x+ boundingRectangle.width-1, 
-						boundingRectangle.y+boundingRectangle.height-1),   new Scalar(0,0,250),2);
+			if (boundingRectangle.height > 40 && boundingRectangle.height < 100 && boundingRectangle.width > 40
+					&& boundingRectangle.width < 100) {
+				Imgproc.rectangle(frame, new Point(boundingRectangle.x, boundingRectangle.y),
+						new Point(boundingRectangle.x + boundingRectangle.width - 1,
+								boundingRectangle.y + boundingRectangle.height - 1),
+						new Scalar(0, 0, 250), 2);
 			}
-			
-			
 		}
-		
-		// if any contour exist...
-		/*if (hierarchy.size().height > 0 && hierarchy.size().width > 0)
-		{
-			// for each contour, display it in blue
-			for (int idx = 0; idx >= 0; idx = (int) hierarchy.get(0, idx)[0])
-			{
-				//Imgproc.drawContours(frame, contours, idx, new Scalar(255, 0, 255), 3);
-			}
-		}*/
-		
 		return frame;
 	}
 
