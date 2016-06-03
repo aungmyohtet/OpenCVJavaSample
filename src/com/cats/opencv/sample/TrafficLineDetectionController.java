@@ -181,7 +181,7 @@ public class TrafficLineDetectionController {
 		Imgproc.cvtColor(frame, grayFrame, Imgproc.COLOR_BGR2GRAY);
 
 		// equalize the frame histogram to improve the result
-		Imgproc.equalizeHist(grayFrame, grayFrame);
+		//Imgproc.equalizeHist(grayFrame, grayFrame);
 
 		// compute minimum car size (20% of the frame height, in our case)
 		if (this.absoluteCarSize == 0) {
@@ -322,7 +322,7 @@ public class TrafficLineDetectionController {
 
 		for (int i = 0; i < contours.size(); i++) {
 			Rect boundingRectangle = Imgproc.boundingRect(contours.get(i));
-			if (boundingRectangle.height > 40 && boundingRectangle.height < 100 && boundingRectangle.width > 40
+			if (boundingRectangle.height > 30 && boundingRectangle.height < 100 && boundingRectangle.width > 30
 					&& boundingRectangle.width < 100) {
 				Imgproc.rectangle(frame, new Point(boundingRectangle.x, boundingRectangle.y),
 						new Point(boundingRectangle.x + boundingRectangle.width - 1,
